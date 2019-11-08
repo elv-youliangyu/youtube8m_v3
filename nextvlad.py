@@ -1,5 +1,5 @@
 from frame_level_models import *
-from layer import bi_lstm, basic_lstm
+#from layer import bi_lstm, basic_lstm
 
 flags.DEFINE_integer("nextvlad_cluster_size", 64, "Number of units in the NeXtVLAD cluster layer.")
 flags.DEFINE_integer("nextvlad_hidden_size", 1024, "Number of units in the NeXtVLAD hidden layer.")

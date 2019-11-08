@@ -254,9 +254,13 @@ def evaluation_loop(fetches, saver, summary_writer, evl_metrics,
             global_step_val = os.path.basename(latest_checkpoint).split("-")[-1]
 
             # Save model
+            if FLAGS.segment_labels:
+                inference_model_name = "segment_inference_model"
+            else:
+                inference_model_name = "inference_model"
             saver.save(
                 sess,
-                os.path.join(FLAGS.train_dir, "inference_model", "inference_model"))
+                os.path.join(FLAGS.train_dir, "inference_model", inference_model_name))
         else:
             logging.info("No checkpoint file found.")
             return global_step_val
@@ -391,6 +395,7 @@ def evaluate():
         summary_writer = tf.summary.FileWriter(
             os.path.join(FLAGS.train_dir, "eval"), graph=tf.get_default_graph())
 
+        print('num_classes: %s' %reader.num_classes)
         evl_metrics = eval_util.EvaluationMetrics(reader.num_classes, FLAGS.top_k)
 
         last_global_step_val = -1

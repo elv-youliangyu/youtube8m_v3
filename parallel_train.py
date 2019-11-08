@@ -103,7 +103,7 @@ if __name__ == "__main__":
         "max_steps", None,
         "The maximum number of iterations of the training loop.")
     flags.DEFINE_integer(
-        "export_model_steps", 10000,
+        "export_model_steps", 1000,
         "The period, in number of steps, with which the model "
         "is exported for batch prediction.")
 
@@ -398,6 +398,7 @@ def build_graph(reader,
             logits = tf.stack(tower_logits, axis=1)
             final_logit = tf.reduce_sum(tf.multiply(logits, tf.expand_dims(mix_weights, axis=-1)), axis=1, keepdims=False)
             final_predictions = tf.nn.sigmoid(final_logit)
+            print('flag1.1!!!', logits.get_shape().as_list(), final_logit.get_shape().as_list(), final_predictions.get_shape().as_list())
         print("flag2!!!", FLAGS.final_temperature, FLAGS.final_lambda)
         rank_pred = tf.expand_dims(tf.nn.softmax(tf.div(final_logit, FLAGS.final_temperature), axis=-1), axis=1)
         aux_rank_preds = tf.nn.softmax(tf.div(logits, FLAGS.final_temperature), axis=-1)
@@ -423,6 +424,7 @@ def build_graph(reader,
 
     tf.add_to_collection("global_step", global_step)
     tf.add_to_collection("loss", label_loss)
+    tf.add_to_collection("reg_loss", reg_loss)
     tf.add_to_collection("predictions", final_predictions)
     tf.add_to_collection("input_batch_raw", model_input_raw)
     tf.add_to_collection("input_batch", model_input)
@@ -521,6 +523,7 @@ class Trainer(object):
 
                 global_step = tf.get_collection("global_step")[0]
                 loss = tf.get_collection("loss")[0]
+                reg_loss = tf.get_collection("reg_loss")[0]
                 predictions = tf.get_collection("predictions")[0]
                 labels = tf.get_collection("labels")[0]
                 train_op = tf.get_collection("train_op")[0]
@@ -548,8 +551,8 @@ class Trainer(object):
                 logging.info("%s: Entering training loop.", task_as_string(self.task))
                 while (not sv.should_stop()) and (not self.max_steps_reached):
                     batch_start_time = time.time()
-                    _, global_step_val, loss_val, predictions_val, labels_val = sess.run(
-                        [train_op, global_step, loss, predictions, labels])
+                    _, global_step_val, loss_val, reg_loss_val, predictions_val, labels_val = sess.run(
+                        [train_op, global_step, loss, reg_loss, predictions, labels])
                     seconds_per_batch = time.time() - batch_start_time
                     examples_per_second = labels_val.shape[0] / seconds_per_batch
 
@@ -567,7 +570,8 @@ class Trainer(object):
                         eval_time = eval_end_time - eval_start_time
 
                         logging.info("training step " + str(global_step_val) + " | Loss: " +
-                                     ("%.2f" % loss_val) + " Examples/sec: " +
+                                     ("%.2f" % loss_val) +  " Reg Loss: " +
+                                     ("%.2f" % reg_loss_val) +  " Examples/sec: " +
                                      ("%.2f" % examples_per_second) + " | Hit@1: " +
                                      ("%.2f" % hit_at_one) + " PERR: " + ("%.2f" % perr) +
                                      " GAP: " + ("%.2f" % gap) + "")
@@ -594,7 +598,8 @@ class Trainer(object):
                             sv.saver.save(sess, sv.save_path, global_step_val)
                     else:
                         logging.info("training step " + str(global_step_val) + " | Loss: " +
-                                     ("%.2f" % loss_val) + " Examples/sec: " +
+                                     ("%.2f" % loss_val) + " Reg Loss: " +
+                                     ("%.2f" % reg_loss_val) + " Examples/sec: " +
                                      ("%.2f" % examples_per_second))
             except tf.errors.OutOfRangeError:
                 logging.info("%s: Done training -- epoch limit reached.",

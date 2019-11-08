@@ -25,7 +25,10 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer(
     "moe_num_mixtures", 2,
     "The number of mixtures (excluding the dummy 'expert') used for MoeModel.")
-
+flags.DEFINE_float(
+    "l2_penalty", 1e-8,
+    "the l2 penalty of classifier weights and bias"
+)
 
 class LogisticModel(models.BaseModel):
   """Logistic model with L2 regularization."""
@@ -46,13 +49,22 @@ class LogisticModel(models.BaseModel):
       model in the 'predictions' key. The dimensions of the tensor are
       batch_size x num_classes.
     """
-    output = slim.fully_connected(
+    logits = slim.fully_connected(
         model_input,
         vocab_size,
-        activation_fn=tf.nn.sigmoid,
+        activation_fn=None,
         weights_regularizer=slim.l2_regularizer(l2_penalty))
-    return {"predictions": output}
 
+    #l2_penalty = l2_penalty or FLAGS.l2_penalty
+    #logits = slim.fully_connected(
+    #    model_input, vocab_size, activation_fn=None,
+    #    weights_regularizer=slim.l2_regularizer(l2_penalty),
+    #    biases_regularizer=slim.l2_regularizer(l2_penalty),
+    #    weights_initializer=slim.variance_scaling_initializer())
+
+    output = tf.nn.sigmoid(logits)
+
+    return {"predictions": output, "logits": logits}
 
 class MoeModel(models.BaseModel):
   """A softmax over a mixture of logistic models (with L2 regularization)."""

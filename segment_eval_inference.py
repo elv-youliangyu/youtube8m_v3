@@ -132,13 +132,14 @@ def read_segment_predictions(file_path, labels, top_n=None):
   with tf.gfile.Open(file_path) as fobj:
     tf.logging.info("Reading predictions from %s..." % file_path)
     for line in fobj:
+      if 'Class' in line: continue
       label_id, pred_ids_val = line.split(",")
       pred_ids = pred_ids_val.split(" ")
       if top_n:
         pred_ids = pred_ids[:top_n]
       pred_ids = [
-          pred_id for pred_id in pred_ids
-          if (pred_id, int(label_id)) in labels.labels
+          str(pred_id.split(':')[0].encode('utf-8'))+':'+pred_id.split(':')[1] for pred_id in pred_ids
+          if (str(pred_id.split(':')[0].encode('utf-8'))+':'+pred_id.split(':')[1], int(label_id)) in labels.labels
       ]
       cls_preds[int(label_id)] = pred_ids
       if len(cls_preds) % 50 == 0:
@@ -177,7 +178,10 @@ def main(unused_argv):
           float(x) / len(class_preds) for x in range(len(class_preds), 0, -1)
       ]
     seg_scored_preds.append(seg_scored_pred)
-    num_positives.append(positive_counter[label_id])
+    if label_id in positive_counter:
+      num_positives.append(positive_counter[label_id])
+    else:
+      num_positives.append(0)
   map_cal.accumulate(seg_scored_preds, seg_labels, num_positives)
   map_at_n = np.mean(map_cal.peek_map_at_n())
   tf.logging.info("Num classes: %d | mAP@%d: %.6f" %

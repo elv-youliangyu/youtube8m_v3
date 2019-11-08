@@ -101,7 +101,7 @@ def format_lines(video_ids, predictions, top_k, whitelisted_cls_mask=None):
     line = [(class_index, predictions[video_index][class_index])
             for class_index in top_indices]
     line = sorted(line, key=lambda p: -p[1])
-    yield (video_ids[video_index] + "," +
+    yield (video_ids[video_index].decode("utf8") + "," +
            " ".join("%i %g" % (label, score) for (label, score) in line) +
            "\n").encode("utf8")
 
@@ -233,9 +233,12 @@ def inference(reader, train_dir, data_pattern, out_file_location, batch_size,
     num_examples_processed = 0
     start_time = time.time()
     whitelisted_cls_mask = None
+    
+    final_out_file = out_file
+    out_file = tempfile.NamedTemporaryFile()
     if FLAGS.segment_labels:
-      final_out_file = out_file
-      out_file = tempfile.NamedTemporaryFile()
+      #final_out_file = out_file
+      #out_file = tempfile.NamedTemporaryFile()
       logging.info(
           "Segment temp prediction output will be written to temp file: %s",
           out_file.name)
@@ -289,6 +292,9 @@ def inference(reader, train_dir, data_pattern, out_file_location, batch_size,
                      " elapsed seconds: " + "{0:.2f}".format(elapsed_time) +
                      " examples/sec: %.2f" %
                      (num_examples_processed / elapsed_time))
+        
+        #print(np.array([
+        #      "%s" % x.decode("utf8") for x in video_id_batch_val]))
         for line in format_lines(video_id_batch_val, predictions_val, top_k,
                                  whitelisted_cls_mask):
           out_file.write(line)
@@ -300,6 +306,12 @@ def inference(reader, train_dir, data_pattern, out_file_location, batch_size,
     finally:
       coord.request_stop()
 
+      tag_file = '.'.join(final_out_file.name.split('.')[:-1]) + "_refinement.csv"
+      video_tag_file = open(tag_file, "w")
+      out_file.seek(0, 0)
+      for line in out_file:
+        video_tag_file.write(line.decode("utf8"))
+
       if FLAGS.segment_labels:
         # Re-read the file and do heap sort.
         # Create multiple heaps.
@@ -308,6 +320,7 @@ def inference(reader, train_dir, data_pattern, out_file_location, batch_size,
         out_file.seek(0, 0)
         for line in out_file:
           segment_id, preds = line.decode("utf8").split(",")
+          #video_tag_file.write(line.decode("utf8"))
           if segment_id == "VideoId":
             # Skip the headline.
             continue
@@ -377,6 +390,7 @@ def main(unused_argv):
     raise ValueError("'input_data_pattern' was not specified. "
                      "Unable to continue with inference.")
 
+  FLAGS.segment_labels = False
   inference(reader, FLAGS.train_dir, FLAGS.input_data_pattern,
             FLAGS.output_file, FLAGS.batch_size, FLAGS.top_k)
 

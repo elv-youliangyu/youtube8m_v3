@@ -144,7 +144,7 @@ def top_k_triplets(predictions, labels, k=20):
 class EvaluationMetrics(object):
   """A class to store the evaluation metrics."""
 
-  def __init__(self, num_class, top_k, top_n):
+  def __init__(self, num_class, top_k, top_n=100000):
     """Construct an EvaluationMetrics object to store the evaluation metrics.
 
     Args:
